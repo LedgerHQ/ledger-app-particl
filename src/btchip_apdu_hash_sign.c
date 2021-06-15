@@ -127,10 +127,9 @@ unsigned short btchip_apdu_hash_sign() {
 
 #ifdef HAVE_PART_SUPPORT
             lenSharedSecret = *(parameters++);
-            if (lenSharedSecret == 32)
-            {
+            if (lenSharedSecret == 32) {
                 cx_math_addm(btchip_private_key_D.d, btchip_private_key_D.d, parameters, order, 32);
-            };
+            }
 #endif
             // Finalize the hash
 

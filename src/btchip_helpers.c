@@ -138,45 +138,6 @@ unsigned char btchip_output_script_is_op_call(unsigned char *buffer) {
             (buffer[buffer[0]] == 0xC2));
 }
 
-#ifdef HAVE_PART_SUPPORT
-unsigned char btchip_output_script_is_coldstake(unsigned char *buffer) {
-    static const unsigned char OP_ISCOINSTAKE = 0xb8;
-    static const unsigned char OP_HASH160 = 0xa9;
-
-    if (buffer[1] == OP_ISCOINSTAKE &&
-        buffer[4] == OP_HASH160)
-        return 1;
-    return 0;
-}
-
-unsigned char btchip_output_script_is_256_hash(unsigned char *buffer) {
-    static const unsigned char OP_SHA256 = 0xa8;
-    static const unsigned char OP_DUP = 0x76;
-
-    if (buffer[1] == OP_DUP &&
-        buffer[2] == OP_SHA256 &&
-        buffer[3] == 0x20)
-        return 1;
-    return 0;
-}
-
-// Note: do not skip the first 8 bits here.
-// Pass btchip_context_D.currentOutput
-// Not btchip_context_D.currentOutput + 8!
-unsigned char btchip_output_is_zero_amount(unsigned char *buffer) {
-    unsigned char isZeroAmount = 1;
-    unsigned char j = 1;
-    for (j = 0; j < 8; j++) {
-        if (buffer[j] != 0) {
-            isZeroAmount = 0;
-            break;
-        }
-    }
-
-    return isZeroAmount;
-}
-#endif
-
 unsigned char btchip_rng_u8_modulo(unsigned char modulo) {
     unsigned int rng_max = 256 % modulo;
     unsigned int rng_limit = 256 - rng_max;
@@ -306,47 +267,6 @@ unsigned short btchip_public_key_to_encoded_base58(
     return outputLen;
 }
 
-#ifdef HAVE_PART_SUPPORT
-unsigned short btchip_pk256_to_encoded_base58(
-    unsigned char *in, unsigned short inlen, unsigned char *out,
-    unsigned short outlen, unsigned short version,
-    unsigned char alreadyHashed) {
-    unsigned char tmpBuffer[38];
-    unsigned char checksumBuffer[32];
-    cx_sha256_t hash;
-    unsigned char versionSize = (version > 255 ? 2 : 1);
-    size_t outputLen;
-
-    if (!alreadyHashed) {
-        PRINTF("To hash%.*H\n", inlen, in);
-        cx_sha256_init(&hash);
-        cx_hash(&hash.header, CX_LAST, in, inlen, tmpBuffer + versionSize, 32);
-        PRINTF("Hash160 %.*H\n", 32, (tmpBuffer + versionSize));
-        if (version > 255) {
-            tmpBuffer[0] = (version >> 8);
-            tmpBuffer[1] = version;
-        } else {
-            tmpBuffer[0] = version;
-        }
-    } else {
-        os_memmove(tmpBuffer, in, 32 + versionSize);
-    }
-
-    cx_sha256_init(&hash);
-    cx_hash(&hash.header, CX_LAST, tmpBuffer, 32 + versionSize, checksumBuffer, 32);
-    cx_sha256_init(&hash);
-    cx_hash(&hash.header, CX_LAST, checksumBuffer, 32, checksumBuffer, 32);
-
-    PRINTF("Checksum %.*H\n", 4, checksumBuffer);
-    os_memmove(tmpBuffer + 32 + versionSize, checksumBuffer, 4);
-
-    outputLen = outlen;
-    if (btchip_encode_base58(tmpBuffer, 36 + versionSize, out, &outputLen) < 0) {
-        THROW(EXCEPTION);
-    }
-    return outputLen;
-}
-#endif
 void btchip_swap_bytes(unsigned char *target, unsigned char *source,
                        unsigned char size) {
     unsigned char i;
@@ -444,3 +364,82 @@ void btchip_signverify_finalhash(void *keyContext, unsigned char sign,
                         CX_SHA256, in, inlen, out, outlen);
     }
 }
+
+#ifdef HAVE_PART_SUPPORT
+unsigned char btchip_output_script_is_coldstake(unsigned char *buffer) {
+    static const unsigned char OP_ISCOINSTAKE = 0xb8;
+    static const unsigned char OP_HASH160 = 0xa9;
+
+    if (buffer[1] == OP_ISCOINSTAKE &&
+        buffer[4] == OP_HASH160)
+        return 1;
+    return 0;
+}
+
+unsigned char btchip_output_script_is_256_hash(unsigned char *buffer) {
+    static const unsigned char OP_SHA256 = 0xa8;
+    static const unsigned char OP_DUP = 0x76;
+
+    if (buffer[1] == OP_DUP &&
+        buffer[2] == OP_SHA256 &&
+        buffer[3] == 0x20)
+        return 1;
+    return 0;
+}
+
+// Note: do not skip the first 8 bits here.
+// Pass btchip_context_D.currentOutput
+// Not btchip_context_D.currentOutput + 8!
+unsigned char btchip_output_is_zero_amount(unsigned char *buffer) {
+    unsigned char isZeroAmount = 1;
+    unsigned char j = 1;
+    for (j = 0; j < 8; j++) {
+        if (buffer[j] != 0) {
+            isZeroAmount = 0;
+            break;
+        }
+    }
+
+    return isZeroAmount;
+}
+
+unsigned short btchip_pk256_to_encoded_base58(
+    unsigned char *in, unsigned short inlen, unsigned char *out,
+    unsigned short outlen, unsigned short version,
+    unsigned char alreadyHashed) {
+    unsigned char tmpBuffer[38];
+    unsigned char checksumBuffer[32];
+    cx_sha256_t hash;
+    unsigned char versionSize = (version > 255 ? 2 : 1);
+    size_t outputLen;
+
+    if (!alreadyHashed) {
+        PRINTF("To hash%.*H\n", inlen, in);
+        cx_sha256_init(&hash);
+        cx_hash(&hash.header, CX_LAST, in, inlen, tmpBuffer + versionSize, 32);
+        PRINTF("Hash160 %.*H\n", 32, (tmpBuffer + versionSize));
+        if (version > 255) {
+            tmpBuffer[0] = (version >> 8);
+            tmpBuffer[1] = version;
+        } else {
+            tmpBuffer[0] = version;
+        }
+    } else {
+        os_memmove(tmpBuffer, in, 32 + versionSize);
+    }
+
+    cx_sha256_init(&hash);
+    cx_hash(&hash.header, CX_LAST, tmpBuffer, 32 + versionSize, checksumBuffer, 32);
+    cx_sha256_init(&hash);
+    cx_hash(&hash.header, CX_LAST, checksumBuffer, 32, checksumBuffer, 32);
+
+    PRINTF("Checksum %.*H\n", 4, checksumBuffer);
+    os_memmove(tmpBuffer + 32 + versionSize, checksumBuffer, 4);
+
+    outputLen = outlen;
+    if (btchip_encode_base58(tmpBuffer, 36 + versionSize, out, &outputLen) < 0) {
+        THROW(EXCEPTION);
+    }
+    return outputLen;
+}
+#endif

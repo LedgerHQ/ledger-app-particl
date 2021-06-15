@@ -489,16 +489,6 @@ void transaction_parse(unsigned char parseMode) {
                                     // Append the saved value
                                     PRINTF("SEGWIT Add value\n%.*H\n",8,btchip_context_D.inputValue);
 
-#ifdef HAVE_PART_SUPPORT
-                                    char amountZero = 1;
-                                    for (size_t k = 0; k < 8; ++k) {
-                                        if (btchip_context_D.inputValue[k] == 0)
-                                            continue;
-                                        amountZero = 0;
-                                        break;
-                                    };
-                                    if (!amountZero) // No amount on data output
-#endif
                                     cx_hash(&btchip_context_D
                                                  .transactionHashFull.header,
                                             0, btchip_context_D.inputValue, 8,

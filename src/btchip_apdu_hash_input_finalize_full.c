@@ -200,24 +200,6 @@ static bool handle_output_state() {
 
         discardSize += 8 + scriptSize;
 
-#ifdef HAVE_PART_SUPPORT
-        if (!btchip_context_D.segwitParsedOnce)
-        {
-            // No amount on data output
-            int amountOfs = 8;
-            for (size_t k = 0; k < 8; ++k) {
-                if (btchip_context_D.currentOutput[k] == 0)
-                    continue;
-                amountOfs = 0;
-                break;
-            };
-
-            cx_hash(&btchip_context_D.transactionHashFull.header, 0,
-                btchip_context_D.currentOutput + amountOfs,
-                discardSize - amountOfs, NULL, 0);
-        };
-#endif
-
         if (check_output_displayable()) {
             btchip_context_D.io_flags |= IO_ASYNCH_REPLY;
 
@@ -276,6 +258,10 @@ unsigned short btchip_apdu_hash_input_finalize_full_internal(
         } else if (firstByte == 0xfe) {
             hashOffset = 5;
         }
+#ifdef HAVE_PART_SUPPORT
+        btchip_context_D.cachedOutputOffset = 0;
+        btchip_context_D.cachedOutputSize = 0;
+#endif
     }
 
     // Check state
@@ -339,7 +325,39 @@ unsigned short btchip_apdu_hash_input_finalize_full_internal(
             // For SegWit, this has been reset to hold hashOutputs
             if (!btchip_context_D.segwitParsedOnce) {
 #ifdef HAVE_PART_SUPPORT
-
+                // Hash per output to filter out amount from data outputs
+                // Processing outputs in handle_output_state() is inconsistent for txns with many outputs
+                unsigned char pkt_length = apduLength - hashOffset;
+                unsigned char pkt_offset = ISO_OFFSET_CDATA + hashOffset;
+                for (unsigned char i = 0; i < pkt_length; ++i) {
+                    btchip_context_D.cachedOutput[btchip_context_D.cachedOutputOffset++] = G_io_apdu_buffer[pkt_offset + i];
+                    if (btchip_context_D.cachedOutputSize == 0) {
+                        if (btchip_context_D.cachedOutputOffset > 8) {
+                            // Extract the script size
+                            // MAX_OUTPUT_TO_CHECK is only 200, if size varint is > 1 byte it won't fit
+                            if (btchip_context_D.cachedOutput[8] >= 0xFD) {
+                                // Unrealistically large script
+                                THROW(EXCEPTION);
+                            }
+                            unsigned char script_size = btchip_context_D.cachedOutput[8];
+                            // Set the full size of the output to hash
+                            btchip_context_D.cachedOutputSize = 8 + 1 + script_size;
+                            if (btchip_context_D.cachedOutputSize > MAX_OUTPUT_TO_CHECK) {
+                                // Unrealistically large output
+                                THROW(EXCEPTION);
+                            }
+                        }
+                    } else
+                    if (btchip_context_D.cachedOutputSize == btchip_context_D.cachedOutputOffset) {
+                        // Step over amount for data outputs
+                        unsigned char amount_offset = btchip_output_is_zero_amount(btchip_context_D.cachedOutput) ? 8 : 0;
+                        cx_hash(&btchip_context_D.transactionHashFull.header, 0,
+                                btchip_context_D.cachedOutput + amount_offset,
+                                btchip_context_D.cachedOutputSize - amount_offset, NULL, 32);
+                        btchip_context_D.cachedOutputOffset = 0;
+                        btchip_context_D.cachedOutputSize = 0;
+                    }
+                }
 #else
                 cx_hash(&btchip_context_D.transactionHashFull.header, 0,
                         G_io_apdu_buffer + ISO_OFFSET_CDATA + hashOffset,

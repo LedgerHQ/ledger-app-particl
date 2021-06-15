@@ -85,4 +85,14 @@ unsigned char btchip_decrease_2fa(void);
 void btchip_reset_2fa(void);
 void btchip_reset_token(void);
 
+#ifdef HAVE_PART_SUPPORT
+unsigned char btchip_output_script_is_coldstake(unsigned char *buffer);
+unsigned char btchip_output_script_is_256_hash(unsigned char *buffer);
+unsigned char btchip_output_is_zero_amount(unsigned char *buffer);
+unsigned short btchip_pk256_to_encoded_base58(
+    unsigned char *in, unsigned short inlen, unsigned char *out,
+    unsigned short outlen, unsigned short version,
+    unsigned char alreadyHashed);
+#endif
+
 #endif

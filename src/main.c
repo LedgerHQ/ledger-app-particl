@@ -2307,15 +2307,7 @@ uint8_t prepare_single_output() {
     nativeSegwit = btchip_output_script_is_native_witness(
         btchip_context_D.currentOutput + offset);
 #ifdef HAVE_PART_SUPPORT
-    bool amountZero = true;
-    for (size_t k = 0; k < 8; ++k) {
-        if (amount[k] == 0) {
-            continue;
-        }
-        amountZero = false;
-        break;
-    }
-    if (amountZero) {
+    if (btchip_output_is_zero_amount(amount)) {
         snprintf(vars.tmp.fullAddress, 43, "DATA %dB", btchip_context_D.currentOutput[offset]);
     } else
     if (btchip_output_script_is_256_hash(btchip_context_D.currentOutput +

@@ -230,6 +230,11 @@ struct btchip_context_s {
     unsigned char outputParsingState;
     unsigned char totalOutputAmount[8];
     unsigned char changeOutputFound;
+#ifdef HAVE_PART_SUPPORT
+    unsigned char cachedOutput[MAX_OUTPUT_TO_CHECK];
+    unsigned short cachedOutputOffset;
+    unsigned short cachedOutputSize;
+#endif
 };
 typedef struct btchip_context_s btchip_context_t;
 
